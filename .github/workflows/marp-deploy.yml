@@ -1,0 +1,96 @@
+# Marp Slide-Deck — Build & Deploy
+#
+# This workflow converts presentation.md into HTML and PDF slides using
+# Marp CLI (via npx), then publishes the HTML deck to GitHub Pages.
+#
+# ── HOW TO ENABLE DEPLOYMENT ────────────────────────────────────────────────
+# 1. Go to your repository on GitHub.
+# 2. Navigate to  Settings → Pages.
+# 3. Under "Build and deployment", set Source to "GitHub Actions".
+#    NOTE: Setting the source to "GitHub Actions" disables the automatic
+#    Jekyll build (pages-build-deployment). The rendered Marp HTML will be
+#    served instead.
+# 4. Push a commit to the main branch (or manually trigger this workflow).
+#    The HTML slide-deck will be published at:
+#    https://<owner>.github.io/<repository>/
+#
+# The PDF version of the slides is also available as a downloadable workflow
+# artifact named "presentation-pdf" on every run.
+# ────────────────────────────────────────────────────────────────────────────
+
+name: Build and Deploy Marp Slides
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'presentation.md'
+      - '.github/workflows/marp-deploy.yml'
+      - '*.png'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'presentation.md'
+      - '.github/workflows/marp-deploy.yml'
+      - '*.png'
+  workflow_dispatch:
+  workflow_call:
+
+# Allow one concurrent deployment; cancel any in-progress run on new push.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# Minimal permissions; Pages deployment needs write access to pages + id-token.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build HTML presentation
+        run: |
+          mkdir -p _site
+          npx -y @marp-team/marp-cli@latest --html --allow-local-files presentation.md -o _site/index.html
+
+      - name: Build PDF presentation
+        run: |
+          npx -y @marp-team/marp-cli@latest --allow-local-files presentation.md -o _site/presentation.pdf
+
+      - name: Upload PDF as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: presentation-pdf
+          path: _site/presentation.pdf
+          retention-days: 30
+
+      - name: Configure GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
