@@ -304,8 +304,7 @@ pixi run spimquant /path/to/bids /path/to/output group \
 ### Subject Selection
 
 ```
---filter-subjects 01 02 03
---filter-spim extension='ome.zarr.zip'   # for zipstore data
+--participant-label 01 02 03
 ```
 
 ---
@@ -317,23 +316,17 @@ pixi run spimquant /path/to/bids /path/to/output group \
 ```bash
 pixi run spimquant /bids /out participant \
   --jobs 50 \
-  --profile slurm
+  --executor slurm
+  --default-resources
 ```
 
-### Cloud (S3 + Coiled)
 
-```bash
-pixi run spimquant s3://my-bucket/bids s3://my-bucket/out participant \
-  --dask-scheduler distributed \
-  --cores all
-```
 
 ### Useful Debug Options
 
 ```
 -n / --dry-run         Show what would run without executing
---forceall             Re-run all steps
---forcerun rule_name   Re-run a specific rule
+-R rule_name           Re-run a specific rule
 --until rule_name      Run only up to a specific rule
 --report               Generate an HTML workflow report
 --notemp               Keep all intermediate files
@@ -349,13 +342,10 @@ pixi run spimquant s3://my-bucket/bids s3://my-bucket/out participant \
    - Check alignment of SPIM to template brain
    - Look for gross misregistration or mask failures
 
-2. **Segmentation overlays** — `seg/*_SPIM.ome.zarr`
-   - Visualise segmentation mask in full resolution (e.g., in Napari or Fiji)
-
-3. **Field fraction heatmap** — `seg/*_seg-roi22_fieldfrac.nii.gz`
+2. **Field fraction heatmap** — `seg/*_seg-roi22_fieldfrac.nii.gz`
    - Colour-coded plaque density per brain region in template space
 
-4. **TSV stats table** — `tabular/*_seg-roi22_segstats.tsv`
+3. **TSV stats table** — `tabular/*_seg-roi22_segstats.tsv`
    - Per-region numbers ready for downstream analysis
 
 ---
