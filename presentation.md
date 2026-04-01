@@ -483,4 +483,4 @@ pixi run spimquant --help
 - Linux x86-64
 - ≥32 GB RAM (64+ GB recommended for large datasets)
 - SSD storage for optimal I/O performance
-- No GPU required (CPU-only pipeline)
+- GPU required only for vessel segmentation
