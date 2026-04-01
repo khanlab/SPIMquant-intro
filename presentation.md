@@ -38,10 +38,11 @@ https://spimquant.readthedocs.io
 
 - Whole-brain fluorescence imaging at cellular resolution
 - Common applications:
-  - Beta-amyloid / alpha-synuclein plaque mapping (AD/PD models)
+  - Amyloid-beta / alpha-synuclein mapping (AD/PD models)
   - Microglia density (Iba1)
+  - Vasculature (CD31)
   - Cholinergic neurons (ChAT)
-  - Vasculature (CD31, Lectin)
+
 - Results in **large, multi-resolution OME-Zarr datasets**
 
 ### Challenge
@@ -57,7 +58,7 @@ A **Snakemake / BIDS App** for automated quantification of lightsheet brain micr
 **Key capabilities:**
 - Deformable registration to a brain atlas template
 - Atlas-based segmentation and quantification
-- Multi-stain support (plaques, cells, vessels)
+- Multi-stain support (pathology, cells, vessels)
 - Participant-level **and** group-level statistics
 
 **Links:**
@@ -96,13 +97,13 @@ Raw SPIM data  →  SPIMprep  →  BIDS dataset (OME-Zarr)
 
 **Accepts:**
 - Stitched Imaris (`.ims`) files
-- Multi-tile TIFF stacks
-- Other common lightsheet formats
+- Multi-tile TIFF stacks (from Blaze Microscope)
+- Stitched TIFF (from LifeCanvas)
 
 **Produces:**
 - BIDS dataset with `sub-*/micr/*_SPIM.ome.zarr`
 - Multi-resolution image pyramid (levels 0–5+)
-- Metadata in `dataset_description.json`, `participants.tsv`
+- Metadata in `dataset_description.json`, `sub-*/micr/*_SPIM.json`, `participants.tsv`
 
 > SPIMprep ensures SPIMquant always receives well-structured, validated input data.
 
@@ -117,9 +118,9 @@ Aligns each SPIM image to a common brain atlas template.
 ### What it does
 
 1. **Import**: Convert OME-Zarr → NIfTI at a downsampled level
-2. **Masking**: Generate brain mask with Gaussian Mixture Model (GMM)
+2. **Masking**: Generate brain mask with Gaussian Mixture Model (atropos)
 3. **Rigid registration**: Coarse alignment at downsampled resolution (default: level 5)
-4. **Deformable registration**: High-quality nonlinear alignment (greedy / ANTs)
+4. **Deformable registration**: High-quality nonlinear alignment (greedy)
 5. **QC report**: HTML visual inspection report
 
 ```bash
@@ -136,7 +137,6 @@ pixi run spimquant /bids /out participant \
 |------|-------------|
 | `xfm/*_from-SPIM_to-{template}_*.mat` | Forward transform (SPIM → template) |
 | `xfm/*_regqc.html` | HTML registration QC report |
-| `xfm/*_regqc.png` | QC snapshot image |
 | `micr/*_space-{template}_SPIM.nii.gz` | SPIM in template space |
 | `parc/*_from-{template}_dseg.nii.gz` | Atlas parcellation in native SPIM space |
 
@@ -145,10 +145,9 @@ pixi run spimquant /bids /out participant \
 | Template | Species | Notes |
 |----------|---------|-------|
 | ABAv3 | Mouse | Allen Brain Atlas v3 (default) |
-| DSURQE | Mouse | Dorr atlas, 40 µm MRI |
-| gubra | Mouse | Gubra atlas |
+| DSURQE | Mouse | Ex vivo MRI,  40 µm MRI |
 | MBMv3 | Marmoset | Primate studies |
-| turone | Mouse | Turone atlas |
+| ... | ... |  ... |
 
 ---
 
@@ -159,8 +158,10 @@ Optional: register a corresponding MRI to SPIM space (and vice versa).
 ```bash
 pixi run spimquant /bids /out participant \
   --register-to-mri \
-  --template-mri DSURQE
+  --template-mri MouseIn
 ```
+
+The MRI template is used for atlas-based brain masking.
 
 **Output:**
 - `anat/*_space-{template}_via-SPIM_desc-preproc_T2w.nii.gz`
@@ -179,6 +180,9 @@ Segment the signal of interest in the registered SPIM image.
 - **N4 bias field correction** (default) or Gaussian-based correction
 - Corrects spatial intensity non-uniformity before thresholding
 
+These methods fit the correction field on downsampled data, then upsample
+the field to apply it to the full-resolution image.
+
 ### Segmentation Methods
 
 | Method | Description |
@@ -187,12 +191,8 @@ Segment the signal of interest in the registered SPIM image.
 | `threshold` | Manual intensity threshold |
 
 ```bash
-pixi run spimquant /bids /out participant \
-  --seg-method otsu+k3i2 \
-  --correction-method n4
+pixi run spimquant /bids /out participant --seg-method otsu+k3i2 --correction-method n4
 ```
-
-> Better methods in active development (e.g., self-supervised deep learning segmentation)
 
 ---
 
@@ -210,37 +210,49 @@ pixi run spimquant /bids /out participant \
 
 | File | Description |
 |------|-------------|
+| `seg/*_mask.ozx` | Mask volume (zipped ome zarr) |
 | `seg/*_fieldfrac.nii.gz` | Field fraction in native SPIM space |
 | `seg/*_space-{template}_fieldfrac.nii.gz` | Field fraction in template space |
-| `tabular/*_seg-{roi}_segstats.tsv` | Field fraction aggregated by atlas ROI |
-| `seg/*_seg-{roi}_fieldfrac.nii.gz` | Heatmap volumes per atlas parcellation |
+| `tabular/*_seg-{roi}_mergedsegstats.tsv` | Field fraction aggregated by atlas ROI |
+| `featuremap/*_seg-{roi}_Abeta+fieldfrac.nii.gz` | Heatmap volumes per atlas parcellation |
 
 ---
 
 ## Quantification Pipeline — Instance-Based Metrics
 
-For counting **individual objects** (plaques, cells) rather than continuous signal.
+For counting **individual objects** (plaques, cells), and quantifying size, location etc.
 
 ### Method
 
 - Connected-component labeling run on **overlapping chunks** (chunk-based parallelism via Dask)
 - Objects touching chunk boundaries are handled via overlap regions
 - Only instances with **centroids inside the chunk** are retained → no double-counting
+- Tables are produced that list, for each instance:
+  - position (pos_x,pos_y,pos_z)
+  - size (nvoxels)
+  - template-space position (template_x, template_y, template_z)
+  - atlas region (index, name)
 
-### Available Metrics
+---
+
+## Quantification Pipeline — Instance-Based Metrics
+
+Instances can then be aggregated with lower-resolution binning, or atlas regions
+
+### Available ROI-based Aggregate Metrics
 
 | Metric | Description |
 |--------|-------------|
 | `count` | Number of instances per atlas region |
+| `volume` | Volume of the atlas region |
 | `density` | Instances per unit regional volume |
-| `nvoxels` | Size distribution of instances |
-| `volume` | Total volume of instances per region |
+| `nvoxels` | Mean size of instances in the region |
 
 ---
 
 ## Quantification Pipeline — Vessel Analysis
 
-Specialized pipeline for **vascular segmentation** (CD31, Lectin stains).
+Specialized pipeline for **vascular segmentation** (CD31, Lectin).
 
 ### Method
 
@@ -252,13 +264,33 @@ Specialized pipeline for **vascular segmentation** (CD31, Lectin stains).
 
 | File | Description |
 |------|-------------|
+| `vessels/*_mask.ozx` | Mask volume (zipped ome zarr) |
 | `vessels/*_fieldfrac.nii.gz` | Vessel field fraction (volume density) |
 | `vessels/*_density.nii.gz` | Vessel count density |
 
 > Next-generation vessel graph analysis is in active development.
 
 ---
+### QC outputs
 
+The workflow will produce subject-level QC outputs to easily visualize 
+masks and quantitative outputs. 
+
+
+| Rule | Inputs | Output |
+|------|--------|--------|
+| `qc_intensity_histogram` | Raw OME-Zarr (per stain, at registration level) | Linear + log histogram, CDF, saturation fraction; linear panel uses percentile-based axis bounds |
+| `qc_segmentation_overview` | OME-Zarr SPIM + seg `mask.ozx` at segmentation level | 3-orientation slice montage (5 slices) + MIP with overlay; near-isotropic downsampling and aspect ratio via `ZarrNii.get_zooms()` |
+| `qc_vessels_overview` | OME-Zarr SPIM + vessel `mask.ozx` at segmentation level | Same whole-brain slice montage + MIP for vessel masks (`vesselslices.png`) |
+| `qc_segmentation_roi_zoom` | OME-Zarr SPIM + seg `mask.ozx` + atlas dseg NIfTI (subject space) + label TSV | Per-atlas-region full-resolution crops via `ZarrNii`/`ZarrNiiAtlas`: best axial slice with overlay (`roimontage.png`) |
+| `qc_vessels_roi_zoom` | OME-Zarr SPIM + vessel `mask.ozx` + atlas dseg NIfTI (subject space) + label TSV | Same full-resolution ROI zoom montage for vessel masks (`vesselroimontage.png`) |
+| `qc_zprofile` | SPIM NIfTI + field-fraction NIfTI | Per-Z-slice mean intensity (±1 SD) and field-fraction profile |
+| `qc_objectstats` | Aggregated regionprops parquet | Volume distribution, log-volume, equivalent-radius, summary stats |
+| `qc_roi_summary` | Merged segstats TSV + atlas label TSV | Top-20 region bar charts for field fraction, count, and density; background (atlas label 0) excluded |
+
+
+
+--- 
 ## Running the Pipeline — Basic Usage
 
 ```bash
@@ -309,7 +341,7 @@ pixi run spimquant /path/to/bids /path/to/output group \
 
 ---
 
-## Running the Pipeline — Cluster & Cloud
+## Running the Pipeline — Cluster
 
 ### SLURM Cluster
 
@@ -347,6 +379,7 @@ pixi run spimquant /bids /out participant \
 
 3. **TSV stats table** — `tabular/*_seg-roi22_segstats.tsv`
    - Per-region numbers ready for downstream analysis
+
 
 ---
 
