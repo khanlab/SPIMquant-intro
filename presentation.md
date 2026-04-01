@@ -276,19 +276,16 @@ Specialized pipeline for **vascular segmentation** (CD31, Lectin).
 The workflow will produce subject-level QC outputs to easily visualize 
 masks and quantitative outputs. 
 
-
 | Rule | Inputs | Output |
 |------|--------|--------|
-| `qc_intensity_histogram` | Raw OME-Zarr (per stain, at registration level) | Linear + log histogram, CDF, saturation fraction; linear panel uses percentile-based axis bounds |
-| `qc_segmentation_overview` | OME-Zarr SPIM + seg `mask.ozx` at segmentation level | 3-orientation slice montage (5 slices) + MIP with overlay; near-isotropic downsampling and aspect ratio via `ZarrNii.get_zooms()` |
-| `qc_vessels_overview` | OME-Zarr SPIM + vessel `mask.ozx` at segmentation level | Same whole-brain slice montage + MIP for vessel masks (`vesselslices.png`) |
-| `qc_segmentation_roi_zoom` | OME-Zarr SPIM + seg `mask.ozx` + atlas dseg NIfTI (subject space) + label TSV | Per-atlas-region full-resolution crops via `ZarrNii`/`ZarrNiiAtlas`: best axial slice with overlay (`roimontage.png`) |
-| `qc_vessels_roi_zoom` | OME-Zarr SPIM + vessel `mask.ozx` + atlas dseg NIfTI (subject space) + label TSV | Same full-resolution ROI zoom montage for vessel masks (`vesselroimontage.png`) |
-| `qc_zprofile` | SPIM NIfTI + field-fraction NIfTI | Per-Z-slice mean intensity (±1 SD) and field-fraction profile |
-| `qc_objectstats` | Aggregated regionprops parquet | Volume distribution, log-volume, equivalent-radius, summary stats |
-| `qc_roi_summary` | Merged segstats TSV + atlas label TSV | Top-20 region bar charts for field fraction, count, and density; background (atlas label 0) excluded |
-
-
+| qc_intensity_histogram | OME-Zarr (per stain) | Hist (lin/log), CDF, saturation; percentile bounds |
+| qc_segmentation_overview | OME-Zarr SPIM + seg mask | 3-view slices (5) + MIP overlay; isotropic scaling |
+| qc_vessels_overview | OME-Zarr SPIM + vessel mask | Same slices + MIP |
+| qc_segmentation_roi_zoom | SPIM + seg mask + atlas + TSV | ROI crops |
+| qc_vessels_roi_zoom | SPIM + vessel mask + atlas + TSV | ROI vessel montage) |
+| qc_zprofile | SPIM + field-fraction NIfTI | Z mean ± SD + field-fraction profile |
+| qc_objectstats | Regionprops parquet | Volume, log-volume, radius, stats |
+| qc_roi_summary | Segstats + atlas TSV | Top-20 bars (fraction, count, density) |
 
 --- 
 ## Running the Pipeline — Basic Usage
