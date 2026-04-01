@@ -3,7 +3,6 @@ marp: true
 theme: default
 paginate: true
 header: "SPIMquant — Intro Tutorial & Demo"
-footer: "Khan Lab | https://github.com/khanlab/SPIMquant"
 style: |
   section {
     font-size: 1.4rem;
@@ -29,6 +28,7 @@ style: |
 **Khan Lab**
 https://github.com/khanlab/SPIMquant
 https://spimquant.readthedocs.io
+https://khanlab.ca/SPIMquant-intro
 
 ---
 
