@@ -76,10 +76,10 @@ Raw SPIM data  →  SPIMprep  →  BIDS dataset (OME-Zarr)
                               SPIMquant (participant)
                                       │
                ┌──────────────────────┼──────────────────────┐
-               │                      │                       │
+               │                      │                      │
          Registration           Segmentation           Vessel seg
-         (template)             (plaques/cells)         (CD31/Lectin)
-               │                      │                       │
+         (template)             (plaques/cells)        (CD31/Lectin)
+               │                      │                      │
                └──────────────────────┴──────────────────────┘
                                       │
                                Quantification
@@ -258,7 +258,7 @@ Specialized pipeline for **vascular segmentation** (CD31, Lectin).
 
 - **VesselFM** deep-learning model for vessel detection
 - **Signed distance transform** from vessel surfaces
-  - Used to relate plaques/cells with nearby vasculature (e.g., CAA analysis)
+  - Used to relate plaques/cells with nearby vasculature 
 
 ### Outputs
 
@@ -266,28 +266,15 @@ Specialized pipeline for **vascular segmentation** (CD31, Lectin).
 |------|-------------|
 | `vessels/*_mask.ozx` | Mask volume (zipped ome zarr) |
 | `vessels/*_fieldfrac.nii.gz` | Vessel field fraction (volume density) |
-| `vessels/*_density.nii.gz` | Vessel count density |
-
-> Next-generation vessel graph analysis is in active development.
-
----
-### QC outputs
-
-The workflow will produce subject-level QC outputs to easily visualize 
-masks and quantitative outputs. 
-
-| Rule | Inputs | Output |
-|------|--------|--------|
-| qc_intensity_histogram | OME-Zarr (per stain) | Hist (lin/log), CDF, saturation; percentile bounds |
-| qc_segmentation_overview | OME-Zarr SPIM + seg mask | 3-view slices (5) + MIP overlay; isotropic scaling |
-| qc_vessels_overview | OME-Zarr SPIM + vessel mask | Same slices + MIP |
-| qc_segmentation_roi_zoom | SPIM + seg mask + atlas + TSV | ROI crops |
-| qc_vessels_roi_zoom | SPIM + vessel mask + atlas + TSV | ROI vessel montage) |
-| qc_zprofile | SPIM + field-fraction NIfTI | Z mean ± SD + field-fraction profile |
-| qc_objectstats | Regionprops parquet | Volume, log-volume, radius, stats |
-| qc_roi_summary | Segstats + atlas TSV | Top-20 bars (fraction, count, density) |
+| `vessels/*_dist.nii.gz` | Distance to nearest vessel |
 
 --- 
+## SPIMquant - Distillation from TB to MB
+
+![w:900px](figures/spimquant_distillation.png)
+
+--- 
+
 ## Running the Pipeline — Basic Usage
 
 ```bash
@@ -371,10 +358,13 @@ pixi run spimquant /bids /out participant \
    - Check alignment of SPIM to template brain
    - Look for gross misregistration or mask failures
 
-2. **Field fraction heatmap** — `seg/*_seg-roi22_fieldfrac.nii.gz`
-   - Colour-coded plaque density per brain region in template space
+2. **QC figures** - `qc/*.png`
+   - Histograms, mask overlays, top 20 density regions ...
 
-3. **TSV stats table** — `tabular/*_seg-roi22_segstats.tsv`
+3. **Feature maps** — `featuremap/*_Abeta+density.nii.gz`
+   - Colour-coded features (e.g. plaque density per brain region) in template space
+
+4. **TSV stats table** — `tabular/*_seg-roi22_mergedsegstats.tsv`
    - Per-region numbers ready for downstream analysis
 
 
@@ -415,7 +405,7 @@ output/
 | Vessel analysis | SPIMquant | Vessel density maps |
 | Group stats | SPIMquant | t-stat / p-val / Cohen's d maps |
 
-**SPIMquant turns terabyte-scale whole-brain microscopy into publication-ready quantitative results.**
+**Goal: turn terabyte-scale whole-brain microscopy into publication-ready quantitative results.**
 
 ---
 
