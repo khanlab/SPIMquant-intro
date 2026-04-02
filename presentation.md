@@ -271,7 +271,7 @@ Specialized pipeline for **vascular segmentation** (CD31, Lectin).
 --- 
 ## SPIMquant - Distillation from TB to MB
 
-![w:900px](figures/spimquant_distillation.png)
+![w:900px](spimquant_distillation.png)
 
 --- 
 
