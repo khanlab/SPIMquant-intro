@@ -65,6 +65,10 @@ jobs:
         run: |
           npx -y @marp-team/marp-cli@latest --allow-local-files presentation.md -o _site/presentation.pdf
 
+      - name: Copy figures to site output
+        run: |
+          cp *.png _site/
+
       - name: Upload PDF as workflow artifact
         uses: actions/upload-artifact@v4
         with:
