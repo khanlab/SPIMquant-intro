@@ -350,6 +350,193 @@ pixi run spimquant /bids /out participant \
 
 ---
 
+## Hands-On Tutorial
+
+### What this walkthrough covers
+
+1. Check hardware + viewer requirements
+2. Set up input data for SPIMquant
+3. Run a fast participant-level workflow
+4. Inspect outputs for import, registration, and segmentation QC
+5. Review subject-level, instance-level, and group-level analysis outputs
+6. Identify the main customization options for downstream work
+
+---
+
+## Hands-On Tutorial — Minimum Requirements
+
+### To run SPIMquant
+
+- Linux x86-64 environment
+- Pixi-installed SPIMquant environment
+- Enough RAM / storage for whole-brain microscopy volumes
+
+### To inspect SPIMquant outputs
+
+- **ITK-SNAP** for NIfTI overlays and labels
+- **napari** for full-resolution OME-Zarr / Imaris viewing
+- **Jupyter** for tabular analysis and plotting
+
+---
+
+## Hands-On Tutorial — Setting Up Your Data
+
+### Accepted image inputs
+
+- **OME-Zarr** input datasets
+- **Imaris (`.ims`)** input datasets
+
+### Recommended dataset structure
+
+- Ideally provide a **BIDS** dataset
+- `participants.tsv` stores participant-level metadata
+- Group analyses merge `participants.tsv` metadata into SPIMquant outputs
+
+---
+
+## Hands-On Tutorial — Preparing BIDS Inputs
+
+### Option 1: SPIMprep
+
+- Converts source data into **BIDS + OME-Zarr**
+- Can optionally stitch before conversion
+
+### Option 2: SPIMpack
+
+- Keeps existing **Imaris** data in place via symlinks
+- Builds the required BIDS metadata without duplicating the dataset
+- Helps define stain metadata and participant metadata
+
+### Fallback
+
+- Non-BIDS inputs can still run with `--path-spim`
+- The path must include `{subject}` in the filename pattern
+
+---
+
+## Hands-On Tutorial — Running SPIMquant
+
+### Key runtime behavior
+
+- Registration runs on a downsampled level of the image
+- Default registration level: **5** (32× downsampled)
+- Segmentation defaults to **level 0**
+- A faster tutorial run can use `--segmentation-level 3`
+  - Often reduces runtime to ~15 minutes per subject
+
+### Useful CLI controls
+
+- `--registration-level`
+- `--segmentation-level`
+- `--cores`
+- `--jobs`
+- `--executor`
+
+---
+
+## Hands-On Tutorial — QC Overview
+
+### After the run, confirm three things
+
+1. The data was **imported correctly**
+2. The data was **registered correctly**
+3. The data was **segmented correctly**
+
+### Common viewers by output type
+
+- Browser: `.png`, `.html` from `qc/`, `seg/`, `xfm/`
+- ITK-SNAP: `.nii`, `.nii.gz`
+- napari: `.ozx`, `.ims`, `.ome.zarr`
+  - Use the **napari-zarrnii** plugin where needed
+
+---
+
+## Hands-On Tutorial — QC 1: Imported Correctly?
+
+### Inspect native-space SPIM NIfTI outputs
+
+- Example:
+  - `micr/sub-AS40F2_ses-exvivo_sample-brain_acq-4x_stain-Abeta_level-5_SPIM.nii.gz`
+
+### What to verify in ITK-SNAP
+
+- Anatomical labels agree with the image content
+- Stain labels are correct
+
+### If labels are wrong
+
+- Update the source **BIDS JSON** metadata
+- CLI overrides are possible, but fixing the source dataset is preferred
+
+---
+
+## Hands-On Tutorial — QC 2: Registered Correctly?
+
+### Registration checks
+
+- Open `xfm/*_regqc.html` in a browser
+- Overlay the SPIM NIfTI with the atlas template in template space
+- Example target space: `space-ABAv3`
+
+### What to verify
+
+- Good global alignment to the template brain
+- No obvious flips, scale errors, or gross misregistration
+
+---
+
+## Hands-On Tutorial — QC 3: Segmented Correctly?
+
+### Segmentation checks
+
+- Review the ROI montage PNGs in `qc/`
+- Overlay field-fraction NIfTI maps on the SPIM NIfTI
+- Open the full-resolution mask in napari:
+  - `seg/*_mask.ozx`
+
+### What to verify
+
+- The mask follows the intended stain signal
+- Full-resolution segmentation aligns with the original data
+
+---
+
+## Hands-On Tutorial — Analysis Outputs
+
+### Subject-level tables
+
+- `subjects` TSV: one row per **subject × region**
+- Useful for downstream statistical modeling and plotting
+
+### Instance-level tables
+
+- One row per detected **object**
+- Examples: plaques, cells, or other segmented instances
+
+### Built-in group statistics
+
+- Run the `group` analysis level
+- Use `--group-stats-*` options to define the model and contrasts
+- Produces tabular outputs plus NIfTI heatmaps with t-statistics and p-values
+
+---
+
+## Hands-On Tutorial — Customizing Processing & Analysis
+
+### Useful extensions
+
+- Segmentation methods and tunable parameters
+- Patch generation for ML training data in SPIM space
+- `bbox-config` for extracting matched template-space crops across subjects
+- Zarr storage controls for format, chunks, and shards
+
+### Config-level customization
+
+- Update the Snakebids config for alternate templates or atlases
+- Extend the pipeline for project-specific processing and analysis needs
+
+---
+
 ## Demo — Subject-Level Outputs
 
 ### What to look at for a single subject
